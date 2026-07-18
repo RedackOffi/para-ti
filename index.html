@@ -17,6 +17,8 @@
             background-color: #050510;
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
+        
+        /* Fondo de Constelaciones */
         #constellationCanvas {
             position: absolute;
             top: 0;
@@ -25,6 +27,8 @@
             height: 100%;
             z-index: 1;
         }
+
+        /* Contenedor central */
         .content-overlay {
             position: absolute;
             top: 0;
@@ -37,73 +41,126 @@
             justify-content: center;
             align-items: center;
             padding: 20px;
-            pointer-events: none; /* Permite interactuar con el canvas de fondo */
         }
-        .heart-glow {
-            width: 80px;
-            height: 80px;
+
+        /* --- EFECTO DEL CORAZÓN QUE SE ROMPE --- */
+        .heart-container {
             position: relative;
-            animation: pulse 1.5s infinite ease-in-out;
-            margin-bottom: 30px;
-            filter: drop-shadow(0 0 20px #ff2a6d);
+            width: 100px;
+            height: 100px;
+            cursor: pointer;
+            animation: pulse 1.2s infinite ease-in-out;
+            z-index: 10;
+            transition: all 0.5s;
         }
-        .heart-glow::before,
-        .heart-glow::after {
-            content: "";
+
+        .heart-half {
             position: absolute;
             top: 0;
             width: 52px;
             height: 80px;
-            border-radius: 50px 50px 0 0;
             background: #ff2a6d;
+            border-radius: 50px 50px 0 0;
+            box-shadow: 0 0 25px rgba(255, 42, 109, 0.6);
+            transition: all 1s ease-in-out; /* Duración de la animación de ruptura */
         }
-        .heart-glow::before {
-            left: 40px;
-            transform: rotate(-45deg);
-            transform-origin: 0 100%;
-        }
-        .heart-glow::after {
-            left: 0;
-            transform: rotate(45deg);
+
+        .heart-left {
+            left: 50%;
+            transform: translateX(-100%) rotate(-45deg);
             transform-origin: 100% 100%;
         }
-        @keyframes pulse {
-            0% { transform: scale(1); filter: drop-shadow(0 0 15px #ff2a6d); }
-            50% { transform: scale(1.15); filter: drop-shadow(0 0 30px #ff2a6d); }
-            100% { transform: scale(1); filter: drop-shadow(0 0 15px #ff2a6d); }
+
+        .heart-right {
+            left: 50%;
+            transform: rotate(45deg);
+            transform-origin: 0 100%;
         }
+
+        /* Animación cuando se rompe (se activa con JS) */
+        .heart-container.broken {
+            animation: none; /* Detiene el latido */
+            pointer-events: none;
+        }
+        .heart-container.broken .heart-left {
+            transform: translateX(-200%) rotate(-90deg) translateY(50px);
+            opacity: 0;
+        }
+        .heart-container.broken .heart-right {
+            transform: translateX(100%) rotate(90deg) translateY(50px);
+            opacity: 0;
+        }
+
+        .click-text {
+            position: absolute;
+            top: 110px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+            opacity: 0.7;
+            transition: opacity 0.5s;
+            pointer-events: none;
+            text-align: center;
+            width: 200px;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+
+        /* --- CARTA OCULTA QUE APARECE --- */
         .letter-container {
             background: rgba(10, 10, 25, 0.75);
             border: 1px solid rgba(255, 42, 109, 0.3);
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
-            padding: 25px;
+            padding: 35px;
             border-radius: 16px;
-            max-width: 450px;
+            max-width: 500px;
             width: 100%;
             text-align: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.7);
-            pointer-events: auto; /* Permite scroll si el texto es largo */
+            
+            /* Oculto inicialmente */
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 1.5s ease-in-out;
+            position: absolute;
+            pointer-events: none;
         }
+
+        /* Clase que lo hace aparecer */
+        .letter-container.show {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
         h1 {
             color: #ff2a6d;
-            font-size: 1.6rem;
-            margin-bottom: 15px;
+            font-size: 1.8rem;
+            margin-bottom: 20px;
             text-shadow: 0 0 10px rgba(255, 42, 109, 0.5);
         }
         .text-message {
             color: #e0e0f0;
-            font-size: 1rem;
+            font-size: 1.1rem;
             line-height: 1.6;
             text-align: justify;
-            min-height: 80px;
+            min-height: 120px;
         }
         .signature {
-            margin-top: 20px;
+            margin-top: 25px;
             text-align: right;
             color: #05d9e8;
             font-weight: bold;
-            font-size: 1.1rem;
+            font-size: 1.2rem;
+            opacity: 0;
+            transition: opacity 2s;
         }
     </style>
 </head>
@@ -112,22 +169,67 @@
     <canvas id="constellationCanvas"></canvas>
 
     <div class="content-overlay">
-        <div class="heart-glow"></div>
-        <div class="letter-container">
-            <h1>Para el amor de mi vida ❤️</h1>
-            <p class="text-message" id="typewriter"></p>
-            <div class="signature">— Joandris</div>
+        
+        <div class="heart-container" id="heartBox" onclick="breakHeart()">
+            <div class="heart-half heart-left"></div>
+            <div class="heart-half heart-right"></div>
+            <div class="click-text" id="clickText">Toca el corazón</div>
         </div>
+
+        <div class="letter-container" id="letterBox">
+            <h1>Para ti ❤️</h1>
+            <p class="text-message" id="typewriter"></p>
+            <div class="signature" id="signature">— Joandris</div>
+        </div>
+
     </div>
 
     <script>
-        // --- CÓDIGO DEL EFECTO CONSTELLACIÓN (CANVAS) ---
+        // --- 1. CONFIGURACIÓN DE LA CARTA ---
+        const cartaTexto = "Sé que las cosas entre nosotros no están bien ahora y que no nos estamos hablando, pero no quería dejar pasar el día sin darte este detalle. Diseñé esto para ti porque, aunque haya distancia o silencios, mi amor y lo que siento por ti sigue intacto, brillando como estas estrellas. Ojalá esto pueda romper el hielo. Te extraño.";
+        
+        let index = 0;
+        const typewriterElement = document.getElementById('typewriter');
+
+        function typeWriter() {
+            if (index < cartaTexto.length) {
+                typewriterElement.innerHTML += cartaTexto.charAt(index);
+                index++;
+                setTimeout(typeWriter, 40); // Velocidad al escribir
+            } else {
+                // Muestra la firma cuando termina de escribir
+                document.getElementById('signature').style.opacity = 1;
+            }
+        }
+
+        // --- 2. FUNCIÓN PARA ROMPER EL CORAZÓN ---
+        function breakHeart() {
+            const heart = document.getElementById('heartBox');
+            const clickText = document.getElementById('clickText');
+            const letter = document.getElementById('letterBox');
+
+            // Añade la clase que rompe el corazón
+            heart.classList.add('broken');
+            clickText.style.opacity = '0'; // Oculta el texto de "Toca"
+
+            // Espera a que termine la animación de romperse (1 segundo)
+            setTimeout(() => {
+                heart.style.display = 'none'; // Desaparece el corazón
+                letter.classList.add('show'); // Hace aparecer la carta
+
+                // Inicia el efecto de máquina de escribir 0.5 segundos después de que aparece la carta
+                setTimeout(typeWriter, 500); 
+            }, 1000);
+        }
+
+
+        // --- 3. EFECTO CONSTELLACIÓN (CANVAS BACKGROUND) ---
         const canvas = document.getElementById('constellationCanvas');
         const ctx = canvas.getContext('2d');
 
         let particles = [];
-        const particleCount = 70;
-        const connectionDistance = 100;
+        const particleCount = 90;
+        const connectionDistance = 120;
 
         function resizeCanvas() {
             canvas.width = window.innerWidth;
@@ -140,8 +242,8 @@
             constructor() {
                 this.x = Math.random() * canvas.width;
                 this.y = Math.random() * canvas.height;
-                this.vx = (Math.random() - 0.5) * 0.6;
-                this.vy = (Math.random() - 0.5) * 0.6;
+                this.vx = (Math.random() - 0.5) * 0.8;
+                this.vy = (Math.random() - 0.5) * 0.8;
                 this.radius = Math.random() * 2 + 1;
             }
             update() {
@@ -169,22 +271,21 @@
         function animate() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Dibujar líneas (Constelaciones)
             for (let i = 0; i < particles.length; i++) {
                 particles[i].update();
                 particles[i].draw();
                 
                 for (let j = i + 1; j < particles.length; j++) {
                     const dx = particles[i].x - particles[j].x;
-                    const db = particles[i].y - particles[j].y;
-                    const distance = Math.sqrt(dx * dx + db * db);
+                    const dy = particles[i].y - particles[j].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
                     
                     if (distance < connectionDistance) {
                         ctx.beginPath();
                         ctx.moveTo(particles[i].x, particles[i].y);
                         ctx.lineTo(particles[j].x, particles[j].y);
-                        ctx.strokeStyle = `rgba(255, 42, 109, ${1 - distance / connectionDistance - 0.3})`;
-                        ctx.lineWidth = 0.5;
+                        ctx.strokeStyle = `rgba(255, 42, 109, ${1 - distance / connectionDistance - 0.2})`;
+                        ctx.lineWidth = 0.6;
                         ctx.stroke();
                     }
                 }
@@ -192,7 +293,7 @@
             requestAnimationFrame(animate);
         }
 
-        // Interactividad táctil / mouse para mover partículas cercanas
+        // El fondo interactúa con el mouse/dedo
         window.addEventListener('pointermove', (e) => {
             if(particles.length > 0) {
                 particles[0].x = e.clientX;
@@ -202,24 +303,6 @@
 
         init();
         animate();
-
-        // --- CÓDIGO MAQUINA DE ESCRIBIR (TU CARTA) ---
-        // Pon aquí adentro lo que le quieras decir. Al ser un string de JS, usa \n para saltos de línea.
-        const cartaTexto = "Sé que las cosas entre nosotros no están bien ahora y que no nos estamos hablando, pero no quería dejar pasar el día sin darte este detalle. Diseñé esto para ti porque, aunque haya distancia o silencios, mi amor y lo que siento por ti sigue intacto, brillando como estas estrellas. Ojalá esto pueda romper el hielo. Te extraño.";
-        
-        const typewriterElement = document.getElementById('typewriter');
-        let index = 0;
-
-        function type() {
-            if (index < cartaTexto.length) {
-                typewriterElement.innerHTML += cartaTexto.charAt(index);
-                index++;
-                setTimeout(type, 40); // Velocidad de escritura (en milisegundos)
-            }
-        }
-        
-        // Iniciar máquina de escribir un segundo después de cargar
-        setTimeout(type, 1000);
     </script>
 </body>
 </html>
